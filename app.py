@@ -100,7 +100,7 @@ def start_tunnel(service_name):
             flash(f"Client service '{service_name}' started.", 'success')
         else:
             flash(f"Failed to start client service '{service_name}'.", 'danger')
-    elif service['service_type'] == 'server_service':
+    elif service.get('service_type') == 'server_service': # Use .get() for safety
         # Server services are managed by the main rathole server instance
         if not rathole_manager.is_process_running('main_rathole_server'):
             if rathole_manager.start_main_rathole_server():
@@ -133,7 +133,7 @@ def stop_tunnel(service_name):
             flash(f"Client service '{service_name}' stopped.", 'success')
         else:
             flash(f"Failed to stop client service '{service_name}'.", 'danger')
-    elif service['service_type'] == 'server_service':
+    elif service.get('service_type') == 'server_service': # Use .get() for safety
         # Stopping a single server_service typically means stopping the main server,
         # or reconfiguring and restarting it without this service.
         # For simplicity, we can't stop individual server_services without affecting others.
