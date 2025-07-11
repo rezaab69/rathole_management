@@ -95,7 +95,6 @@ def update_password(username, new_password):
     finally:
         conn.close()
 
-if __name__ == '__main__':
 # --- Tunnel Configuration CRUD ---
 
 def add_tunnel_config(name, service_type, token, server_bind_addr=None, client_local_addr=None, client_remote_addr=None, status='stopped', config_path=None, user_id=None):
