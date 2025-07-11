@@ -95,12 +95,16 @@ def start_tunnel(service_name):
         flash(f"Service '{service_name}' not found.", 'danger')
         return redirect(url_for('dashboard'))
 
-    if service.get('service_type') == 'client_service': # Use .get() for safety
+    service_kind = service.get('service_type')
+    if service_kind is None: # If 'service_type' key is missing
+        service_kind = service.get('type') # Try 'type' as a fallback
+
+    if service_kind == 'client_service':
         if rathole_manager.start_rathole_client_service(service_name):
             flash(f"Client service '{service_name}' started.", 'success')
         else:
             flash(f"Failed to start client service '{service_name}'.", 'danger')
-    elif service.get('service_type') == 'server_service': # Use .get() for safety
+    elif service_kind == 'server_service':
         # Server services are managed by the main rathole server instance
         if not rathole_manager.is_process_running('main_rathole_server'):
             if rathole_manager.start_main_rathole_server():
