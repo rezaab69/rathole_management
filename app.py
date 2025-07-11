@@ -132,12 +132,16 @@ def stop_tunnel(service_name):
         flash(f"Service '{service_name}' not found.", 'danger')
         return redirect(url_for('dashboard'))
 
-    if service['service_type'] == 'client_service':
+    service_kind = service.get('service_type')
+    if service_kind is None: # If 'service_type' key is missing
+        service_kind = service.get('type') # Try 'type' as a fallback
+
+    if service_kind == 'client_service':
         if rathole_manager.stop_rathole_client_service(service_name):
             flash(f"Client service '{service_name}' stopped.", 'success')
         else:
             flash(f"Failed to stop client service '{service_name}'.", 'danger')
-    elif service.get('service_type') == 'server_service': # Use .get() for safety
+    elif service_kind == 'server_service':
         # Stopping a single server_service typically means stopping the main server,
         # or reconfiguring and restarting it without this service.
         # For simplicity, we can't stop individual server_services without affecting others.
