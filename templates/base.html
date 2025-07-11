@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% block title %}Tunnel Manager{% endblock %}</title>
+    <!-- Add Bootstrap CSS or other styling here if desired -->
+    <style>
+      body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color: #333; }
+      .container { max-width: 960px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+      header { background-color: #333; color: #fff; padding: 10px 0; text-align: center; }
+      header h1 { margin: 0; }
+      nav { background-color: #444; padding: 10px; text-align: center; }
+      nav a { color: #fff; margin: 0 15px; text-decoration: none; }
+      nav a:hover { text-decoration: underline; }
+      .content { padding: 20px; }
+      .form-group { margin-bottom: 15px; }
+      .form-group label { display: block; margin-bottom: 5px; }
+      .form-group input[type="text"], .form-group input[type="password"] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+      .form-group input[type="submit"], button { background-color: #5cb85c; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+      .form-group input[type="submit"]:hover, button:hover { background-color: #4cae4c; }
+      .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; }
+      .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; } /* Bootstrap 4/5 like colors */
+      .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+      .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+      .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+      .logout-btn { background-color: #d9534f; }
+      .logout-btn:hover { background-color: #c9302c; }
+      table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+      th { background-color: #f2f2f2; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Tunnel Manager</h1>
+    </header>
+    {% if session.username %}
+    <nav>
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('settings') }}">Settings</a>
+      <a href="{{ url_for('logout') }}">Logout ({{ session.username }})</a>
+    </nav>
+    {% endif %}
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>

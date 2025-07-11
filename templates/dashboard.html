@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Tunnel Manager{% endblock %}
+
+{% block content %}
+  <h2>Dashboard</h2>
+  <p>Welcome, {{ username }}!</p>
+
+  <h3>Rathole Tunnel Management</h3>
+
+  <h4>Main Rathole Server Status</h4>
+  <p>
+    The main rathole server (listens on configured port, e.g., 2333 for clients) is currently:
+    <strong>{{ "Running" if main_server_running else "Not Running" }}</strong>.
+  </p>
+  <p>
+    <a href="{{ url_for('restart_main_server') }}" class="button">Restart Main Rathole Server</a>
+    (Needed after adding/removing 'Panel Hosted' services)
+  </p>
+  <hr>
+
+  <h4>Add New Tunnel Service</h4>
+  <form method="post" action="{{ url_for('dashboard') }}" id="addTunnelForm">
+    <div class="form-group">
+      <label for="service_name">Service Name (unique):</label>
+      <input type="text" id="service_name" name="service_name" required>
+    </div>
+    <div class="form-group">
+      <label for="service_type">Service Type:</label>
+      <select id="service_type" name="service_type" onchange="toggleServiceFields()">
+        <option value="server_service">Panel Hosted Service (Panel is Rathole Server)</option>
+        <option value="client_service">Remote Service (Panel is Rathole Client)</option>
+      </select>
+    </div>
+    <div class="form-group">
+        <label for="token">Token (optional, leave blank to auto-generate):</label>
+        <input type="text" id="token" name="token" placeholder="e.g., mysecrettoken123">
+    </div>
+
+    <!-- Fields for Panel Hosted Service (server_service) -->
+    <div id="server_service_fields">
+      <p><em>This panel will act as the rathole server for this service. Provide these details to the remote rathole client.</em></p>
+      <div class="form-group">
+        <label for="server_bind_addr">Panel's Public Port (e.g., 0.0.0.0:7001 or specific_ip:7001):</label>
+        <input type="text" id="server_bind_addr" name="server_bind_addr" placeholder="0.0.0.0:7001">
+      </div>
+      <p>The client will connect to this panel's main rathole server (e.g., {{ request.host.split(':')[0] }}:2333) using the service name and token.</p>
+    </div>
+
+    <!-- Fields for Remote Service (client_service) -->
+    <div id="client_service_fields" style="display:none;">
+      <p><em>This panel will act as the rathole client to connect to a service running on a remote machine and expose it.</em></p>
+      <div class="form-group">
+        <label for="client_local_addr">Remote Service Address (e.g., 127.0.0.1:80 or 192.168.1.10:22 on the remote machine):</label>
+        <input type="text" id="client_local_addr" name="client_local_addr" placeholder="127.0.0.1:80">
+      </div>
+      <div class="form-group">
+        <label for="client_remote_addr">Rathole Server Address (e.g., your_panel_ip:2333 or other.rathole.server:port):</label>
+        <input type="text" id="client_remote_addr" name="client_remote_addr" placeholder="{{ request.host.split(':')[0] }}:2333">
+      </div>
+       <p>The token here must match the token configured on the rathole server for this service name.</p>
+    </div>
+
+    <input type="submit" value="Add Tunnel Service">
+  </form>
+  <hr>
+
+  <h4>Configured Tunnel Services</h4>
+  {% if tunnels %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Token</th>
+        <th>Details (Panel Port / Remote Service / Rathole Server)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for name, tunnel in tunnels.items() %}
+      <tr>
+        <td>{{ tunnel.name }}</td>
+        <td>
+          {% if tunnel.service_type == 'server_service' %}Panel Hosted (Server)
+          {% elif tunnel.service_type == 'client_service' %}Remote Target (Client)
+          {% else %}{{ tunnel.service_type }}{% endif %}
+        </td>
+        <td style="color: {{ 'green' if tunnel.status == 'running' else 'red' if tunnel.status == 'error' else 'orange' }};">
+            {{ tunnel.status | capitalize }}
+        </td>
+        <td>{{ tunnel.token }}</td>
+        <td>
+          {% if tunnel.service_type == 'server_service' %}
+            Panel Public Port: {{ tunnel.server_bind_addr }} <br/>
+            <small>Client connects to: {{ request.host.split(':')[0] }}:2333 (using this service name & token)</small>
+          {% elif tunnel.service_type == 'client_service' %}
+            Remote Service: {{ tunnel.client_local_addr }} <br/>
+            Rathole Server: {{ tunnel.client_remote_addr }}
+          {% endif %}
+        </td>
+        <td>
+          {% if tunnel.status == 'stopped' or tunnel.status == 'error' %}
+            <a href="{{ url_for('start_tunnel', service_name=tunnel.name) }}" class="button-small">Start</a>
+          {% elif tunnel.status == 'running' %}
+            <a href="{{ url_for('stop_tunnel', service_name=tunnel.name) }}" class="button-small button-stop">Stop</a>
+          {% endif %}
+          <a href="{{ url_for('remove_tunnel', service_name=tunnel.name) }}" class="button-small button-remove" onclick="return confirm('Are you sure you want to remove service {{ tunnel.name }}?');">Remove</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No tunnel services configured yet.</p>
+  {% endif %}
+
+<script>
+  function toggleServiceFields() {
+    var serviceType = document.getElementById('service_type').value;
+    var serverFields = document.getElementById('server_service_fields');
+    var clientFields = document.getElementById('client_service_fields');
+    var serverBindAddrInput = document.getElementById('server_bind_addr');
+    var clientLocalAddrInput = document.getElementById('client_local_addr');
+    var clientRemoteAddrInput = document.getElementById('client_remote_addr');
+
+    if (serviceType === 'server_service') {
+      serverFields.style.display = 'block';
+      clientFields.style.display = 'none';
+      serverBindAddrInput.required = true;
+      clientLocalAddrInput.required = false;
+      clientRemoteAddrInput.required = false;
+    } else if (serviceType === 'client_service') {
+      serverFields.style.display = 'none';
+      clientFields.style.display = 'block';
+      serverBindAddrInput.required = false;
+      clientLocalAddrInput.required = true;
+      clientRemoteAddrInput.required = true;
+    }
+  }
+  // Initialize fields based on default selection
+  document.addEventListener('DOMContentLoaded', function() {
+    toggleServiceFields();
+  });
+</script>
+<style>
+  .button, .button-small {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 2px;
+    background-color: #5cb85c;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .button-small {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .button:hover, .button-small:hover {
+    background-color: #4cae4c;
+  }
+  .button-stop { background-color: #f0ad4e; }
+  .button-stop:hover { background-color: #ec971f; }
+  .button-remove { background-color: #d9534f; }
+  .button-remove:hover { background-color: #c9302c; }
+  hr { margin: 20px 0; border: 0; border-top: 1px solid #eee; }
+</style>
+{% endblock %}
