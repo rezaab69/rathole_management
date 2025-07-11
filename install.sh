@@ -77,18 +77,24 @@ sudo mkdir -p "$APP_DIR/instance/rathole_configs" # For rathole configs and DB
 # Temporarily, let's assume the script is run from the repo root
 # In a real scenario, you might git clone or unpack a release tarball
 echo "Copying application files to $APP_DIR..."
-# Create a temporary directory for copying
-TEMP_COPY_DIR="/tmp/tunnel_manager_src"
-mkdir -p "$TEMP_COPY_DIR"
-cp -r . "$TEMP_COPY_DIR/" # Copy current dir (repo)
+# This assumes install.sh is in the root of the repository being installed.
+# Get the directory where install.sh is located, which should be the repo root.
+SCRIPT_DIR_TMP="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# Now copy from temp dir to app dir (as sudo)
-sudo cp -r "$TEMP_COPY_DIR/app.py" "$APP_DIR/"
-sudo cp -r "$TEMP_COPY_DIR/database.py" "$APP_DIR/"
-sudo cp -r "$TEMP_COPY_DIR/rathole_manager.py" "$APP_DIR/"
-sudo cp -r "$TEMP_COPY_DIR/requirements.txt" "$APP_DIR/"
-sudo cp -r "$TEMP_COPY_DIR/templates" "$APP_DIR/"
+# Check if essential files exist in the script's directory
+if [ ! -f "$SCRIPT_DIR_TMP/app.py" ] || [ ! -f "$SCRIPT_DIR_TMP/requirements.txt" ] || [ ! -d "$SCRIPT_DIR_TMP/templates" ]; then
+    echo "Error: Essential application files (app.py, requirements.txt, templates/) not found in script directory: $SCRIPT_DIR_TMP"
+    echo "Please ensure the install.sh script is in the root of the application source code."
+    exit 1
+fi
+
+sudo cp -r "$SCRIPT_DIR_TMP/app.py" "$APP_DIR/"
+sudo cp -r "$SCRIPT_DIR_TMP/database.py" "$APP_DIR/"
+sudo cp -r "$SCRIPT_DIR_TMP/rathole_manager.py" "$APP_DIR/"
+sudo cp -r "$SCRIPT_DIR_TMP/requirements.txt" "$APP_DIR/"
+sudo cp -r "$SCRIPT_DIR_TMP/templates" "$APP_DIR/"
 # Ensure 'instance' directory exists in APP_DIR for database.py and rathole_manager.py
+# This was already created, but being explicit for the sub-dirs if needed.
 sudo mkdir -p "$APP_DIR/instance"
 sudo mkdir -p "$APP_DIR/instance/rathole_configs"
 
@@ -96,7 +102,7 @@ sudo mkdir -p "$APP_DIR/instance/rathole_configs"
 # Set ownership to a non-root user if desired, for now run as root or manage permissions
 # sudo chown -R youruser:yourgroup "$APP_DIR"
 
-cd "$APP_DIR"
+cd "$APP_DIR" # Change directory to APP_DIR for subsequent commands like pip install
 
 # --- 4. Python Dependencies ---
 echo "Installing Python dependencies..."
