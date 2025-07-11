@@ -90,11 +90,12 @@ def start_tunnel(service_name):
         return redirect(url_for('login'))
 
     service = rathole_manager.service_configurations.get(service_name)
+    print(f"DEBUG: Attempting to start tunnel '{service_name}'. Service details: {service}") # DEBUG LINE
     if not service:
         flash(f"Service '{service_name}' not found.", 'danger')
         return redirect(url_for('dashboard'))
 
-    if service['service_type'] == 'client_service':
+    if service.get('service_type') == 'client_service': # Use .get() for safety
         if rathole_manager.start_rathole_client_service(service_name):
             flash(f"Client service '{service_name}' started.", 'success')
         else:
