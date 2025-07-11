@@ -30,19 +30,19 @@ To download and install the Rathole Web Tunnel Manager on an Ubuntu system, firs
 ```bash
 git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO_NAME>.git
 cd <YOUR_REPO_NAME>
-sudo bash install.sh
+sudo bash install.sh "$(pwd)"
 ```
 
-**Note:** Replace `<YOUR_USERNAME>` and `<YOUR_REPO_NAME>` with the actual username and repository name once it's on GitHub.
+**Note:** Replace `<YOUR_USERNAME>` and `<YOUR_REPO_NAME>` with the actual username and repository name once it's on GitHub. The ` "$(pwd)"` part passes the current directory (which should be the repository root) to the install script.
 
-If you want a one-liner to download and execute the install script directly from a specific branch (e.g., `main`) once the repository is public:
+If you want a one-liner to download and execute the install script directly from a specific branch (e.g., `main`) once the repository is public, it's more complex because the script needs access to the other repository files. The recommended method is to clone first. However, a more advanced `install.sh` could potentially handle cloning the repo itself. For now, please use the clone-then-run method above.
 
-```bash
-curl -sSL https://raw.githubusercontent.com/<YOUR_USERNAME>/<YOUR_REPO_NAME>/main/install.sh | sudo bash
-```
-Again, replace `<YOUR_USERNAME>` and `<YOUR_REPO_NAME>` accordingly.
+<!--
+Hypothetical one-liner if install.sh handled cloning (currently it does not):
+curl -sSL https://raw.githubusercontent.com/<YOUR_USERNAME>/<YOUR_REPO_NAME>/main/install.sh | sudo bash -s <YOUR_REPO_URL_FOR_CLONING>
+-->
 
-After installation, the script will display the access URL for the web panel along with the randomly generated admin username and password.
+After installation (using the recommended clone-then-run method), the script will display the access URL for the web panel along with the randomly generated admin username and password.
 
 ## TODO / Future Enhancements
 

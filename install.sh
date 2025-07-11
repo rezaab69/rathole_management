@@ -5,6 +5,21 @@ set -e
 
 echo "Starting Tunnel Manager Installation..."
 
+APP_SOURCE_DIR="$1"
+
+if [ -z "$APP_SOURCE_DIR" ]; then
+    echo "Error: Source directory not provided as the first argument to install.sh."
+    echo "Usage: sudo bash install.sh /path/to/cloned/repo"
+    exit 1
+fi
+
+if [ ! -d "$APP_SOURCE_DIR" ]; then
+    echo "Error: Provided source directory '$APP_SOURCE_DIR' does not exist or is not a directory."
+    exit 1
+fi
+echo "Using application source directory: $APP_SOURCE_DIR"
+
+
 # --- Configuration ---
 APP_DIR="/opt/my-tunnel-manager"
 PYTHON_EXEC="python3"
