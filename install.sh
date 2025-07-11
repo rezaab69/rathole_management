@@ -79,25 +79,30 @@ sudo mkdir -p "$APP_DIR/instance/rathole_configs" # For rathole configs and DB
 echo "Copying application files to $APP_DIR..."
 
 echo "Determining script directory..."
-SOURCE_DIR_RAW="${BASH_SOURCE[0]}"
-echo "BASH_SOURCE[0] is: $SOURCE_DIR_RAW"
+echo "Initial BASH_SOURCE[0]: ${BASH_SOURCE[0]}"
+echo "Initial PWD: $(pwd)"
 
-# Resolve symlinks to get the actual script path
-while [ -h "$SOURCE_DIR_RAW" ]; do # Recursively dereference symlinks
-  DIR_RAW="$( cd -P "$( dirname "$SOURCE_DIR_RAW" )" && pwd )"
-  SOURCE_DIR_RAW="$(readlink "$SOURCE_DIR_RAW")"
-  [[ $SOURCE_DIR_RAW != /* ]] && SOURCE_DIR_RAW="$DIR_RAW/$SOURCE_DIR_RAW"
-done
-SCRIPT_DIR_RESOLVED="$( cd -P "$( dirname "$SOURCE_DIR_RAW" )" && pwd )"
-echo "Resolved script directory (SCRIPT_DIR_RESOLVED) is: $SCRIPT_DIR_RESOLVED"
+# Get the directory containing the script. Handles cases where the script is called with a path.
+# And when it's called directly in the current directory.
+if [[ "${BASH_SOURCE[0]}" == */* ]]; then
+    # Script was called with a path, e.g., bash /path/to/install.sh or bash ./install.sh
+    SCRIPT_DIR_TMP_RAW_DIRNAME_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    # Script was called without a path, e.g., bash install.sh. Assume it's in PWD.
+    # This case needs to be robust if PWD is not where the script truly resides (e.g. if PATH lookup found it)
+    # However, given `sudo bash install.sh` after `cd reponame`, PWD should be correct.
+    SCRIPT_DIR_TMP_RAW_DIRNAME_ABS="$(pwd)"
+fi
+echo "Attempted script directory (absolute): $SCRIPT_DIR_TMP_RAW_DIRNAME_ABS"
 
-SCRIPT_DIR_TMP="$SCRIPT_DIR_RESOLVED" # Use the resolved path
+SCRIPT_DIR_TMP="$SCRIPT_DIR_TMP_RAW_DIRNAME_ABS"
 
-# Check if essential files exist in the script's directory
+# Check if essential files exist in the determined script directory
 if [ ! -f "$SCRIPT_DIR_TMP/app.py" ] || [ ! -f "$SCRIPT_DIR_TMP/requirements.txt" ] || [ ! -d "$SCRIPT_DIR_TMP/templates" ]; then
     echo "Error: Essential application files (app.py, requirements.txt, templates/) not found in script directory: $SCRIPT_DIR_TMP"
     echo "BASH_SOURCE[0] was: ${BASH_SOURCE[0]}"
-    echo "Please ensure the install.sh script is in the root of the application source code."
+    echo "PWD was: $(pwd)"
+    echo "Please ensure you are running 'sudo bash install.sh' from the root directory of the cloned repository."
     exit 1
 fi
 echo "Essential files found in $SCRIPT_DIR_TMP. Proceeding with copy."
