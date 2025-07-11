@@ -33,7 +33,7 @@ def login():
             return render_template('login.html') # Removed error prop
     return render_template('login.html')
 
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET', 'POST']) # Allow POST requests for form submission
 def dashboard():
     if 'username' not in session:
         flash('Please login to access this page.', 'warning')
