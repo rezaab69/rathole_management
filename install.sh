@@ -43,8 +43,8 @@ RATHOLE_DOWNLOAD_URL="https://github.com/rathole-org/rathole/releases/download/$
 echo "Updating package lists..."
 sudo apt-get update -y
 
-echo "Installing system dependencies (python3, pip3, curl, unzip, git)..."
-sudo apt-get install -y python3 python3-pip curl unzip git
+echo "Installing system dependencies (python3, pip3, python3-venv, curl, unzip, git)..."
+sudo apt-get install -y python3 python3-pip python3-venv curl unzip git
 
 # --- 2. Download and Install Rathole ---
 echo "Downloading Rathole ${RATHOLE_VERSION} for ${RATHOLE_ARCH}..."
@@ -97,16 +97,21 @@ sudo mkdir -p "$APP_DIR/instance/rathole_configs" # Already created above
 
 cd "$APP_DIR" # Change directory to APP_DIR for subsequent commands
 
-# --- 4. Python Dependencies ---
-echo "Installing Python dependencies..."
-sudo $PIP_EXEC install -r requirements.txt
+# --- 4. Python Virtual Environment and Dependencies ---
+echo "Creating Python virtual environment in $APP_DIR/.venv..."
+sudo $PYTHON_EXEC -m venv .venv # Create venv in current dir ($APP_DIR)
+
+echo "Installing Python dependencies into virtual environment..."
+# Use pip from the virtual environment
+sudo .venv/bin/pip install -r requirements.txt
 
 # --- 5. Initial Database and User Setup ---
 echo "Initializing database and creating admin user..."
 ADMIN_PASSWORD=$(openssl rand -base64 12)
 ADMIN_USERNAME="admin"
 
-sudo $PYTHON_EXEC -c "
+# Use Python from the virtual environment
+sudo .venv/bin/python -c "
 import database
 import app
 print('Initializing DB from install script...')
@@ -121,7 +126,8 @@ else:
 # --- 6. Default Rathole Server Config ---
 echo "Generating default rathole server.toml..."
 DEFAULT_SERVER_LISTEN_ADDR="0.0.0.0:2333"
-sudo $PYTHON_EXEC -c "
+# Use Python from the virtual environment
+sudo .venv/bin/python -c "
 import toml
 import os
 config_dir = os.path.join('$APP_DIR', 'instance', 'rathole_configs')
@@ -163,7 +169,7 @@ echo "                    sudo ufw allow ${RATHOLE_PORT}/tcp"
 echo "   Also allow ports for any 'Panel Hosted Services' you configure."
 echo ""
 echo "2. To run the application, navigate to $APP_DIR and run:"
-echo "   sudo $PYTHON_EXEC app.py"
+echo "   sudo $APP_DIR/.venv/bin/python app.py"
 echo ""
 echo "3. For production, set up systemd services to run the Flask app and rathole server automatically:"
 echo ""
@@ -176,7 +182,7 @@ echo ""
 echo "[Service]"
 echo "User=root # Or a dedicated user with permissions to $APP_DIR and rathole"
 echo "WorkingDirectory=$APP_DIR"
-echo "ExecStart=$PYTHON_EXEC app.py"
+echo "ExecStart=$APP_DIR/.venv/bin/python app.py"
 echo "Restart=always"
 echo "Environment=\"FLASK_SECRET_KEY=$(openssl rand -hex 16)\" # IMPORTANT: Set a persistent random key"
 echo ""
