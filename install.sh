@@ -162,14 +162,24 @@ echo "--------------------------------------------------------------------"
 echo "Installation Complete!"
 echo "--------------------------------------------------------------------"
 echo ""
-echo "Web Panel URL: http://<YOUR_SERVER_IP>:5001"
+# Attempt to get the primary IP address
+SERVER_IP_FOR_URL=$(hostname -I | awk '{print $1}')
+if [ -z "$SERVER_IP_FOR_URL" ]; then
+    # Fallback if hostname -I doesn't work or returns empty
+    SERVER_IP_FOR_URL="<YOUR_SERVER_IP_OR_0.0.0.0>"
+fi
+RATHOLE_PORT=${DEFAULT_SERVER_LISTEN_ADDR##*:} # Extract port
+
+echo "Web Panel URL: http://${SERVER_IP_FOR_URL}:5001"
 echo "Admin Username: $ADMIN_USERNAME"
 echo "Admin Password: $ADMIN_PASSWORD  (SAVE THIS! It will not be shown again.)"
 echo ""
 echo "Important Next Steps:"
-echo "1. Configure your firewall to allow traffic on port 5001 (for the web panel) and $DEFAULT_SERVER_LISTEN_ADDR (for rathole server)."
+echo "1. Configure your firewall to allow traffic on:"
+echo "   - Port 5001/tcp (for the web panel)"
+echo "   - Port ${RATHOLE_PORT}/tcp (for the main rathole server, listening on $DEFAULT_SERVER_LISTEN_ADDR)"
 echo "   Example for ufw: sudo ufw allow 5001/tcp"
-echo "                    sudo ufw allow ${DEFAULT_SERVER_LISTEN_ADDR#*:}tcp" # Extracts port from bind_addr
+echo "                    sudo ufw allow ${RATHOLE_PORT}/tcp"
 echo "   Also allow ports for any 'Panel Hosted Services' you configure."
 echo ""
 echo "2. To run the application, navigate to $APP_DIR and run:"
