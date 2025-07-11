@@ -77,16 +77,30 @@ sudo mkdir -p "$APP_DIR/instance/rathole_configs" # For rathole configs and DB
 # Temporarily, let's assume the script is run from the repo root
 # In a real scenario, you might git clone or unpack a release tarball
 echo "Copying application files to $APP_DIR..."
-# This assumes install.sh is in the root of the repository being installed.
-# Get the directory where install.sh is located, which should be the repo root.
-SCRIPT_DIR_TMP="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+echo "Determining script directory..."
+SOURCE_DIR_RAW="${BASH_SOURCE[0]}"
+echo "BASH_SOURCE[0] is: $SOURCE_DIR_RAW"
+
+# Resolve symlinks to get the actual script path
+while [ -h "$SOURCE_DIR_RAW" ]; do # Recursively dereference symlinks
+  DIR_RAW="$( cd -P "$( dirname "$SOURCE_DIR_RAW" )" && pwd )"
+  SOURCE_DIR_RAW="$(readlink "$SOURCE_DIR_RAW")"
+  [[ $SOURCE_DIR_RAW != /* ]] && SOURCE_DIR_RAW="$DIR_RAW/$SOURCE_DIR_RAW"
+done
+SCRIPT_DIR_RESOLVED="$( cd -P "$( dirname "$SOURCE_DIR_RAW" )" && pwd )"
+echo "Resolved script directory (SCRIPT_DIR_RESOLVED) is: $SCRIPT_DIR_RESOLVED"
+
+SCRIPT_DIR_TMP="$SCRIPT_DIR_RESOLVED" # Use the resolved path
 
 # Check if essential files exist in the script's directory
 if [ ! -f "$SCRIPT_DIR_TMP/app.py" ] || [ ! -f "$SCRIPT_DIR_TMP/requirements.txt" ] || [ ! -d "$SCRIPT_DIR_TMP/templates" ]; then
     echo "Error: Essential application files (app.py, requirements.txt, templates/) not found in script directory: $SCRIPT_DIR_TMP"
+    echo "BASH_SOURCE[0] was: ${BASH_SOURCE[0]}"
     echo "Please ensure the install.sh script is in the root of the application source code."
     exit 1
 fi
+echo "Essential files found in $SCRIPT_DIR_TMP. Proceeding with copy."
 
 sudo cp -r "$SCRIPT_DIR_TMP/app.py" "$APP_DIR/"
 sudo cp -r "$SCRIPT_DIR_TMP/database.py" "$APP_DIR/"
