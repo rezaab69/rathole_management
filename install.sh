@@ -37,15 +37,13 @@ else
     exit 1
 fi
 RATHOLE_DOWNLOAD_URL="https://github.com/rathole-org/rathole/releases/download/${RATHOLE_VERSION}/rathole-${RATHOLE_ARCH}.zip"
-# Fallback if zip isn't available for a target, some might be .tar.gz
-# RATHOLE_DOWNLOAD_URL_TGZ="https://github.com/rathole-org/rathole/releases/download/${RATHOLE_VERSION}/rathole-${RATHOLE_ARCH}.tar.gz"
 
 
 # --- 1. System Dependencies ---
 echo "Updating package lists..."
 sudo apt-get update -y
 
-echo "Installing system dependencies (python3, pip3, curl, unzip)..."
+echo "Installing system dependencies (python3, pip3, curl, unzip, git)..."
 sudo apt-get install -y python3 python3-pip curl unzip git
 
 # --- 2. Download and Install Rathole ---
@@ -53,26 +51,14 @@ echo "Downloading Rathole ${RATHOLE_VERSION} for ${RATHOLE_ARCH}..."
 cd /tmp
 curl -sSL -o rathole.zip "$RATHOLE_DOWNLOAD_URL"
 
-# Check if download was successful (curl returns 0 on success)
 if [ $? -ne 0 ]; then
     echo "Failed to download rathole.zip. Please check the URL or version."
-    # Attempt tar.gz as fallback for some architectures if needed
-    # echo "Attempting to download tar.gz..."
-    # curl -sSL -o rathole.tar.gz "$RATHOLE_DOWNLOAD_URL_TGZ"
-    # if [ $? -ne 0 ]; then
-    #    echo "Failed to download rathole.tar.gz as well. Exiting."
-    #    exit 1
-    # fi
-    # sudo tar -xzf rathole.tar.gz -C /usr/local/bin rathole \
-    #   && sudo chmod +x /usr/local/bin/rathole
     exit 1
 else
     unzip -o rathole.zip
-    # Assuming the binary is named 'rathole' directly in the zip, or in a subdirectory
-    # Adjust if rathole zip structure changes
-    if [ -f "rathole-${RATHOLE_ARCH}/rathole" ]; then # If it's in a subdirectory
+    if [ -f "rathole-${RATHOLE_ARCH}/rathole" ]; then
         sudo mv "rathole-${RATHOLE_ARCH}/rathole" /usr/local/bin/rathole
-    elif [ -f "rathole" ]; then # If it's in the root of the zip
+    elif [ -f "rathole" ]; then
         sudo mv rathole /usr/local/bin/rathole
     else
         echo "Could not find 'rathole' binary in the downloaded zip. Please check zip contents."
@@ -87,37 +73,15 @@ rathole --version # Verify installation
 # --- 3. Application Setup ---
 echo "Creating application directory: $APP_DIR"
 sudo mkdir -p "$APP_DIR"
-sudo mkdir -p "$APP_DIR/instance/rathole_configs" # For rathole configs and DB
+sudo mkdir -p "$APP_DIR/instance/rathole_configs"
 
-# Temporarily, let's assume the script is run from the repo root
-# In a real scenario, you might git clone or unpack a release tarball
 echo "Copying application files to $APP_DIR..."
+SCRIPT_DIR_TMP="$APP_SOURCE_DIR" # Use the passed argument consistently
 
-echo "Determining script directory..."
-echo "Initial BASH_SOURCE[0]: ${BASH_SOURCE[0]}"
-echo "Initial PWD: $(pwd)"
-
-# Get the directory containing the script. Handles cases where the script is called with a path.
-# And when it's called directly in the current directory.
-if [[ "${BASH_SOURCE[0]}" == */* ]]; then
-    # Script was called with a path, e.g., bash /path/to/install.sh or bash ./install.sh
-    SCRIPT_DIR_TMP_RAW_DIRNAME_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-else
-    # Script was called without a path, e.g., bash install.sh. Assume it's in PWD.
-    # This case needs to be robust if PWD is not where the script truly resides (e.g. if PATH lookup found it)
-    # However, given `sudo bash install.sh` after `cd reponame`, PWD should be correct.
-    SCRIPT_DIR_TMP_RAW_DIRNAME_ABS="$(pwd)"
-fi
-echo "Attempted script directory (absolute): $SCRIPT_DIR_TMP_RAW_DIRNAME_ABS"
-
-SCRIPT_DIR_TMP="$SCRIPT_DIR_TMP_RAW_DIRNAME_ABS"
-
-# Check if essential files exist in the determined script directory
+# Check if essential files exist in the SCRIPT_DIR_TMP (which is APP_SOURCE_DIR)
 if [ ! -f "$SCRIPT_DIR_TMP/app.py" ] || [ ! -f "$SCRIPT_DIR_TMP/requirements.txt" ] || [ ! -d "$SCRIPT_DIR_TMP/templates" ]; then
-    echo "Error: Essential application files (app.py, requirements.txt, templates/) not found in script directory: $SCRIPT_DIR_TMP"
-    echo "BASH_SOURCE[0] was: ${BASH_SOURCE[0]}"
-    echo "PWD was: $(pwd)"
-    echo "Please ensure you are running 'sudo bash install.sh' from the root directory of the cloned repository."
+    echo "Error: Essential application files (app.py, requirements.txt, templates/) not found in source directory: $SCRIPT_DIR_TMP"
+    echo "Please ensure the provided source directory '$APP_SOURCE_DIR' is correct and contains the application files."
     exit 1
 fi
 echo "Essential files found in $SCRIPT_DIR_TMP. Proceeding with copy."
@@ -128,15 +92,10 @@ sudo cp -r "$SCRIPT_DIR_TMP/rathole_manager.py" "$APP_DIR/"
 sudo cp -r "$SCRIPT_DIR_TMP/requirements.txt" "$APP_DIR/"
 sudo cp -r "$SCRIPT_DIR_TMP/templates" "$APP_DIR/"
 # Ensure 'instance' directory exists in APP_DIR for database.py and rathole_manager.py
-# This was already created, but being explicit for the sub-dirs if needed.
-sudo mkdir -p "$APP_DIR/instance"
-sudo mkdir -p "$APP_DIR/instance/rathole_configs"
+sudo mkdir -p "$APP_DIR/instance" # Already created above, but good for explicitness
+sudo mkdir -p "$APP_DIR/instance/rathole_configs" # Already created above
 
-
-# Set ownership to a non-root user if desired, for now run as root or manage permissions
-# sudo chown -R youruser:yourgroup "$APP_DIR"
-
-cd "$APP_DIR" # Change directory to APP_DIR for subsequent commands like pip install
+cd "$APP_DIR" # Change directory to APP_DIR for subsequent commands
 
 # --- 4. Python Dependencies ---
 echo "Installing Python dependencies..."
@@ -144,14 +103,8 @@ sudo $PIP_EXEC install -r requirements.txt
 
 # --- 5. Initial Database and User Setup ---
 echo "Initializing database and creating admin user..."
-# Generate a random password
 ADMIN_PASSWORD=$(openssl rand -base64 12)
 ADMIN_USERNAME="admin"
-
-# Use Python to call the setup functions
-# This assumes app.py and database.py can be run to initialize
-# We need a way to pass the generated password to create_initial_user
-# For now, we'll create a small helper script or directly call python code.
 
 sudo $PYTHON_EXEC -c "
 import database
@@ -166,24 +119,19 @@ else:
 "
 
 # --- 6. Default Rathole Server Config ---
-# This is the main server.toml for the panel's rathole server instance
-# It will listen for incoming rathole client connections.
-# Individual services exposed BY this panel will be added to this config dynamically by rathole_manager.py
 echo "Generating default rathole server.toml..."
-DEFAULT_SERVER_LISTEN_ADDR="0.0.0.0:2333" # Default rathole port
+DEFAULT_SERVER_LISTEN_ADDR="0.0.0.0:2333"
 sudo $PYTHON_EXEC -c "
 import toml
 import os
 config_dir = os.path.join('$APP_DIR', 'instance', 'rathole_configs')
-os.makedirs(config_dir, exist_ok=True)
+os.makedirs(config_dir, exist_ok=True) # Ensure it exists, though App Setup section should create it
 server_config_file = os.path.join(config_dir, 'server.toml')
 config_data = {
     'server': {
         'bind_addr': '$DEFAULT_SERVER_LISTEN_ADDR',
         'heartbeat_interval': 30
     }
-    # No services defined here initially; they are added dynamically
-    # by rathole_manager.py by rewriting this file.
 }
 with open(server_config_file, 'w') as f:
     toml.dump(config_data, f)
@@ -196,13 +144,11 @@ echo "--------------------------------------------------------------------"
 echo "Installation Complete!"
 echo "--------------------------------------------------------------------"
 echo ""
-# Attempt to get the primary IP address
 SERVER_IP_FOR_URL=$(hostname -I | awk '{print $1}')
 if [ -z "$SERVER_IP_FOR_URL" ]; then
-    # Fallback if hostname -I doesn't work or returns empty
     SERVER_IP_FOR_URL="<YOUR_SERVER_IP_OR_0.0.0.0>"
 fi
-RATHOLE_PORT=${DEFAULT_SERVER_LISTEN_ADDR##*:} # Extract port
+RATHOLE_PORT=${DEFAULT_SERVER_LISTEN_ADDR##*:}
 
 echo "Web Panel URL: http://${SERVER_IP_FOR_URL}:5001"
 echo "Admin Username: $ADMIN_USERNAME"
@@ -218,7 +164,6 @@ echo "   Also allow ports for any 'Panel Hosted Services' you configure."
 echo ""
 echo "2. To run the application, navigate to $APP_DIR and run:"
 echo "   sudo $PYTHON_EXEC app.py"
-echo "   (This will also attempt to start the main rathole server process if services are configured)"
 echo ""
 echo "3. For production, set up systemd services to run the Flask app and rathole server automatically:"
 echo ""
@@ -240,7 +185,6 @@ echo "WantedBy=multi-user.target"
 echo "   --------------------------------------------------------------------"
 echo ""
 echo "   Example systemd service for the main Rathole server (e.g., /etc/systemd/system/tunnel-manager-rathole.service):"
-echo "   (Note: The Flask app currently tries to manage this, but a separate service can be more robust)"
 echo "   --------------------------------------------------------------------"
 echo "[Unit]"
 echo "Description=Tunnel Manager - Rathole Server"
@@ -248,7 +192,7 @@ echo "After=network.target"
 echo ""
 echo "[Service]"
 echo "User=root # Or a dedicated user"
-echo "WorkingDirectory=$APP_DIR/instance/rathole_configs"
+echo "WorkingDirectory=$APP_DIR/instance/rathole_configs" # Rathole server should run from where its server.toml is
 echo "ExecStart=/usr/local/bin/rathole server.toml"
 echo "Restart=always"
 echo "Environment=\"RUST_LOG=info\""
@@ -264,6 +208,6 @@ echo "Installation script finished."
 # Clean up downloaded files
 rm -f /tmp/rathole.zip
 rm -rf /tmp/rathole-${RATHOLE_ARCH}
-rm -rf "$TEMP_COPY_DIR"
+# TEMP_COPY_DIR was removed, so no need to clean it up.
 
 exit 0
