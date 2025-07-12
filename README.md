@@ -31,6 +31,10 @@ To download and install the Rathole Web Tunnel Manager on an Ubuntu system, run 
 git clone -b feat/rathole-tunnel-manager-v1 https://github.com/rezaab69/rathole_management.git && cd rathole_management && sudo bash install.sh "$(pwd)"
 ```
 
+Run script
+```
+sudo /opt/my-tunnel-manager/.venv/bin/python /opt/my-tunnel-manager/app.py
+```
 After installation (using the recommended clone-then-run method), the script will display the access URL for the web panel along with the randomly generated admin username and password.
 
 ## TODO / Future Enhancements
