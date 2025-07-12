@@ -28,7 +28,6 @@ Ensure you have `git` and `curl` installed (`sudo apt update && sudo apt install
 To download and install the Rathole Web Tunnel Manager on an Ubuntu system, run the installation script:
 
 ```
-Hypothetical one-liner if install.sh handled cloning (currently it does not):
 git clone -b feat/rathole-tunnel-manager-v1 https://github.com/rezaab69/rathole_management.git && cd rathole_management && sudo bash install.sh "$(pwd)"
 ```
 
