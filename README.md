@@ -72,9 +72,6 @@ sudo ufw allow 5001/tcp
 
 # Allow a tunnel port (example)
 sudo ufw allow 7000/tcp
-
-# Enable the firewall
-sudo ufw enable
 ```
 
 ## Usage
