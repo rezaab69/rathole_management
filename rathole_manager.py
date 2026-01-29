@@ -371,6 +371,70 @@ def _save_trusted_root_cert(instance_name, cert_content):
         log_message(f"Failed to save trusted root cert for {instance_name}: {e}")
         return None
 
+def check_client_port_conflict(local_addr, current_instance):
+    """
+    Check if the local_addr (port) conflicts with existing client services in other instances.
+    Services within the same instance are allowed to share ports as rathole handles internal routing.
+    Returns True if there's a conflict, False if it's safe to use.
+    """
+    try:
+        # Extract port from local_addr (format: "0.0.0.0:port" or "127.0.0.1:port")
+        if ':' not in local_addr:
+            return False
+        
+        requested_port = local_addr.split(':')[-1]
+        requested_ip = local_addr.split(':')[0]
+        
+        # Get all existing client services
+        all_services = get_all_services()
+        for service_name, service_details in all_services.items():
+            # Only check client services from different instances
+            if (service_details.get('service_type') == 'client_service' and 
+                service_details.get('parent_instance') != current_instance and
+                service_details.get('local_addr')):
+                
+                existing_local_addr = service_details.get('local_addr')
+                if ':' in existing_local_addr:
+                    existing_port = existing_local_addr.split(':')[-1]
+                    existing_ip = existing_local_addr.split(':')[0]
+                    
+                    # Check if ports match
+                    if existing_port == requested_port:
+                        # Check if the IP addresses could conflict
+                        # 0.0.0.0 binds to all interfaces, so it conflicts with any other binding on the same port
+                        # Specific IPs (like 127.0.0.1) only conflict with the same IP or 0.0.0.0
+                        if (requested_ip == '0.0.0.0' or existing_ip == '0.0.0.0' or 
+                            requested_ip == existing_ip):
+                            log_message(f"Port conflict: {local_addr} conflicts with existing service '{service_name}' on {existing_local_addr} in instance '{service_details.get('parent_instance')}'")
+                            return True
+        
+        return False
+    except Exception as e:
+        log_message(f"Error checking port conflict for {local_addr}: {e}")
+        # In case of error, be conservative and allow the service
+        return False
+
+def get_used_client_ports():
+    """
+    Get a list of all ports currently used by client services.
+    Returns a set of port numbers (as strings).
+    """
+    used_ports = set()
+    try:
+        all_services = get_all_services()
+        for service_details in all_services.values():
+            if (service_details.get('service_type') == 'client_service' and 
+                service_details.get('local_addr')):
+                
+                local_addr = service_details.get('local_addr')
+                if ':' in local_addr:
+                    port = local_addr.split(':')[-1]
+                    used_ports.add(port)
+    except Exception as e:
+        log_message(f"Error getting used client ports: {e}")
+    
+    return used_ports
+
 def add_instance(instance_type, instance_name, addr, default_token=None, auto_restart=False, transport_protocol='tcp', remote_public_key=None, tls_trusted_root_content=None, tls_pkcs12_password=None):
     if not all([instance_type, instance_name, addr]): return False
     config_path = os.path.join(CONFIG_DIR, f"{instance_type}_{instance_name}.toml")
@@ -566,7 +630,34 @@ def remove_instance(instance_type, instance_name):
     return True
 
 def add_service(service_name, parent_instance, service_type, bind_addr=None, local_addr=None, token=None, protocol='tcp'):
+    """
+    Add a new service to an existing rathole instance.
+    
+    For client services, this function now includes port conflict detection to prevent
+    multiple client instances from trying to bind to the same local port, which would
+    cause runtime errors. Services within the same client instance can share ports
+    as rathole handles the internal routing.
+    
+    Args:
+        service_name: Unique name for the service
+        parent_instance: Name of the parent rathole instance
+        service_type: 'server_service' or 'client_service'
+        bind_addr: For server services, the address to bind to (e.g., "0.0.0.0:8080")
+        local_addr: For client services, the local address to bind to (e.g., "0.0.0.0:8080")
+        token: Optional authentication token
+        protocol: Protocol type ('tcp' or 'udp')
+    
+    Returns:
+        bool: True if service was added successfully, False if there was a conflict or error
+    """
     if service_name in get_all_services(): return False
+    
+    # Check for port conflicts in client services
+    if service_type == 'client_service' and local_addr:
+        if check_client_port_conflict(local_addr, parent_instance):
+            log_message(f"Port conflict detected for client service '{service_name}' on {local_addr}")
+            return False
+    
     instance_type = 'server' if service_type == 'server_service' else 'client'
     config_path = os.path.join(CONFIG_DIR, f"{instance_type}_{parent_instance}.toml")
     if not os.path.exists(config_path): return False

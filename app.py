@@ -170,11 +170,30 @@ def add_service():
         service_type = 'client_service'
         local_addr = f"0.0.0.0:{port}"
         if all([service_name, parent_instance, port]):
-            if rathole_manager.add_service(service_name, parent_instance, service_type, local_addr=local_addr, token=token, protocol=protocol):
+            result = rathole_manager.add_service(service_name, parent_instance, service_type, local_addr=local_addr, token=token, protocol=protocol)
+            if result:
                 iptables_manager.add_traffic_rules(service_name, port)
                 flash(f"Service '{service_name}' added to client '{parent_instance}'. Restart instance to apply.", 'success')
             else:
-                flash(f"Failed to add service '{service_name}'. It might already exist.", 'danger')
+                # Check if it's a port conflict or service name conflict
+                existing_services = rathole_manager.get_all_services()
+                if service_name in existing_services:
+                    flash(f"Failed to add service '{service_name}'. Service name already exists.", 'danger')
+                else:
+                    # Check for port conflict
+                    if rathole_manager.check_client_port_conflict(local_addr, parent_instance):
+                        used_ports = rathole_manager.get_used_client_ports()
+                        # Suggest next available port
+                        suggested_port = int(port)
+                        while str(suggested_port) in used_ports and suggested_port < 65535:
+                            suggested_port += 1
+                        
+                        if suggested_port < 65535:
+                            flash(f"Port {port} is already in use by another client instance. Try port {suggested_port} instead.", 'warning')
+                        else:
+                            flash(f"Port {port} is already in use by another client instance. Please choose a different port.", 'warning')
+                    else:
+                        flash(f"Failed to add service '{service_name}'. Unknown error occurred.", 'danger')
         else:
             flash("Service Name/Port and Parent Instance are required.", 'danger')
 
@@ -327,6 +346,47 @@ def reset_traffic(service_name):
     else:
         flash(f"Failed to reset traffic counters for '{service_name}'.", 'danger')
     return redirect(url_for('dashboard'))
+
+@app.route('/api/check_port', methods=['POST'])
+def api_check_port():
+    if 'username' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.json
+    port = data.get('port')
+    instance_name = data.get('instance_name')
+    instance_type = data.get('instance_type')
+    
+    if not all([port, instance_name, instance_type]):
+        return jsonify({'error': 'Missing parameters'}), 400
+    
+    if instance_type == 'client':
+        local_addr = f"0.0.0.0:{port}"
+        is_conflict = rathole_manager.check_client_port_conflict(local_addr, instance_name)
+        
+        if is_conflict:
+            used_ports = rathole_manager.get_used_client_ports()
+            # Suggest next available port
+            suggested_port = int(port)
+            while str(suggested_port) in used_ports and suggested_port < 65535:
+                suggested_port += 1
+            
+            return jsonify({
+                'available': False,
+                'message': f'Port {port} is already in use by another client instance',
+                'suggested_port': suggested_port if suggested_port < 65535 else None
+            })
+        else:
+            return jsonify({
+                'available': True,
+                'message': f'Port {port} is available'
+            })
+    else:
+        # For server instances, we don't check conflicts as they bind to different interfaces
+        return jsonify({
+            'available': True,
+            'message': f'Port {port} is available for server instance'
+        })
 
 @app.route('/api/status')
 # Exempt the frequent status polling endpoint from rate limiting
